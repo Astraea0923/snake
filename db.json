@@ -1,0 +1,16 @@
+{
+  "players": [
+    {
+      "name": "刘德航",
+      "color": "#4caf50",
+      "highScore": 350,
+      "createTime": 1783266114944
+    },
+    {
+      "name": "郭星",
+      "color": "#4caf50",
+      "highScore": 130,
+      "createTime": 1783267776286
+    }
+  ]
+}
