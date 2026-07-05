@@ -1,7 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
+const { createClient } = require('@supabase/supabase-js')
 
-export default async function handler(req, res) {
-  // 只允许POST请求
+module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, msg: '方法不允许' })
   }
@@ -19,19 +18,19 @@ export default async function handler(req, res) {
   const playerName = name.trim()
   const playerColor = color || '#4caf50'
 
-  // 有则更新颜色，无则插入新玩家
-  const { data, error } = await supabase
-    .from('players')
-    .upsert(
-      { name: playerName, color: playerColor },
-      { onConflict: 'name' }
-    )
-    .select()
-    .single()
+  try {
+    const { data, error } = await supabase
+      .from('players')
+      .upsert(
+        { name: playerName, color: playerColor },
+        { onConflict: 'name' }
+      )
+      .select()
+      .single()
 
-  if (error) {
-    return res.json({ success: false, msg: '数据库错误' })
+    if (error) throw error
+    res.json({ success: true, player: data })
+  } catch (e) {
+    res.json({ success: false, msg: '数据库错误' })
   }
-
-  res.json({ success: true, player: data })
 }
