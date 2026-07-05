@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>贪吃蛇联机版</title>
+<style>
+    body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background: #1a1a1a;
+        color: #fff;
+        font-family: Arial, sans-serif;
+        margin-top: 20px;
+    }
+
+    #gameCanvas {
+        border: 2px solid #333;
+        background: #000;
+    }
+
+    .info-bar {
+        width: 600px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 18px;
+        margin-bottom: 10px;
+    }
+
+    .controls {
+        margin: 8px 0;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: center;
+        max-width: 620px;
+        align-items: center;
+    }
+
+    button {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        background: #4CAF50;
+        color: white;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    button.active {
+        background: #ff9800;
+    }
+
+    button:hover {
+        opacity: 0.9;
+    }
+
+    button:disabled {
+        background: #666;
+        cursor: not-allowed;
+    }
+
+    .tip {
+        margin-top: 10px;
+        color: #999;
+        font-size: 13px;
+        text-align: center;
+        line-height: 1.6;
+    }
+
+    .level-info {
+        color: #ffd700;
+    }
+
+    .modal-mask {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 999;
+    }
+
+    .modal-box {
+        background: #2a2a2a;
+        padding: 30px 40px;
+        border-radius: 8px;
+        width: 320px;
+        text-align: center;
+    }
+
+    .modal-box h2 {
+        margin: 0 0 20px 0;
+        color: #ffd700;
+    }
+
+    .form-item {
+        margin-bottom: 15px;
+        text-align: left;
+    }
+
+    .form-item label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 14px;
+        color: #ccc;
+    }
+
+    .form-item input[type="text"] {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #444;
+        border-radius: 4px;
+        background: #1a1a1a;
+        color: #fff;
+        box-sizing: border-box;
+    }
+
+    .form-item input[type="color"] {
+        width: 100%;
+        height: 40px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        background: transparent;
+    }
+
+    .modal-btn {
+        width: 100%;
+        padding: 10px;
+        font-size: 16px;
+        margin-top: 10px;
+    }
+
+    .rank-list {
+        margin-top: 15px;
+        max-height: 300px;
+        overflow-y: auto;
+        text-align: left;
+    }
+
+    .rank-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #333;
+        align-items: center;
+    }
+
+    .rank-item .left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .rank-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+    }
+
+    .rank-no {
+        width: 24px;
+        font-weight: bold;
+        color: #ffd700;
+    }
+
+    .hidden {
+        display: none !important;
+    }
+
+    .user-info {
+        color: #81c784;
+        font-size: 16px;
+    }
+
+    .color-picker-wrap {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 14px;
+        color: #ccc;
+    }
+
+    #colorPicker {
+        width: 30px;
+        height: 28px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        background: transparent;
+        padding: 0;
+    }
+</style>
+</head>
+<body>
+    <!-- 登录弹窗 -->
+    <div id="loginModal" class="modal-mask">
+        <div class="modal-box">
+            <h2>贪吃蛇联机版</h2>
+            <div class="form-item">
+                <label>玩家昵称</label>
+                <input type="text" id="nameInput" placeholder="输入你的昵称" maxlength="12">
+            </div>
+            <div class="form-item">
+                <label>蛇身颜色</label>
+                <input type="color" id="colorInput" value="#4caf50">
+            </div>
+            <button class="modal-btn" id="startBtn">开始游戏</button>
+            <button class="modal-btn" id="showRankBtn" style="background:#2196f3;margin-top:10px;">查看排行榜</button>
+        </div>
+    </div>
+
+    <!-- 排行榜弹窗 -->
+    <div id="rankModal" class="modal-mask hidden">
+        <div class="modal-box">
+            <h2>全球排行榜 Top10</h2>
+            <div id="rankList" class="rank-list"></div>
+            <button class="modal-btn" id="closeRankBtn" style="margin-top:15px;">返回</button>
+        </div>
+    </div>
+
+    <div class="info-bar">
+        <div class="user-info">玩家: <span id="userName">-</span></div>
+        <div>得分: <span id="score1">0</span></div>
+        <div class="level-info">关卡: <span id="levelText">1</span> | 目标: <span id="targetText">50</span></div>
+        <div>最高分: <span id="highScore">0</span></div>
+        <div>玩家2: <span id="score2">0</span></div>
+    </div>
+
+    <div class="controls">
+        <span>难度：</span>
+        <button class="diff-btn" data-speed="150">简单</button>
+        <button class="diff-btn active" data-speed="120">普通</button>
+        <button class="diff-btn" data-speed="80">困难</button>
+    </div>
+    <div class="controls">
+        <button id="wallModeBtn">穿墙模式：关</button>
+        <button id="obstacleBtn">障碍物：关</button>
+        <button id="levelModeBtn">闯关模式：关</button>
+        <button id="modeBtn">双人模式：关</button>
+        <button id="rankBtn">排行榜</button>
+        <div class="color-picker-wrap">
+            <span>蛇色:</span>
+            <input type="color" id="gameColorPicker" value="#4caf50" title="点击更换蛇的颜色">
+        </div>
+        <button id="restartBtn">重新开始 (R)</button>
+    </div>
+
+    <canvas id="gameCanvas" width="600" height="600"></canvas>
+
+    <div class="tip">
+        单人：方向键控制 | 双人：玩家1 WASD / 玩家2 方向键<br>
+        空格暂停/继续 | 红色+10分 | 金色+30分 | 紫色BOSS会移动，撞到即死<br>
+        道具说明：蓝=完全无敌 | 青=减速 | 橙=清障 | 黄=双倍分数
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const score1El = document.getElementById('score1');
+        const highScoreEl = document.getElementById('highScore');
+        const score2El = document.getElementById('score2');
+        const levelTextEl = document.getElementById('levelText');
+        const targetTextEl = document.getElementById('targetText');
+        const userNameEl = document.getElementById('userName');
+        const gameColorPicker = document.getElementById('gameColorPicker');
+
+        const wallModeBtn = document.getElementById('wallModeBtn');
+        const obstacleBtn = document.getElementById('obstacleBtn');
+        const levelModeBtn = document.getElementById('levelModeBtn');
+        const modeBtn = document.getElementById('modeBtn');
+        const rankBtn = document.getElementById('rankBtn');
+        const restartBtn = document.getElementById('restartBtn');
+        const diffBtns = document.querySelectorAll('.diff-btn');
+
+        const loginModal = document.getElementById('loginModal');
+        const rankModal = document.getElementById('rankModal');
+        const nameInput = document.getElementById('nameInput');
+        const colorInput = document.getElementById('colorInput');
+        const startBtn = document.getElementById('startBtn');
+        const showRankBtn = document.getElementById('showRankBtn');
+        const closeRankBtn = document.getElementById('closeRankBtn');
+        const rankList = document.getElementById('rankList');
+
+        const gridSize = 20;
+        const tileCount = canvas.width / gridSize;
+        const canvasW = canvas.width;
+        const canvasH = canvas.height;
+
+        let currentPlayer = null;
+        let snake1 = [];
+        let snake2 = [];
+
+        let dx1 = 1, dy1 = 0;
+        let dx2 = -1, dy2 = 0;
+
+        let nextDx1 = 1, nextDy1 = 0;
+        let nextDx2 = -1, nextDy2 = 0;
+
+        let food = { x: 0, y: 0, type: 'normal' };
+        let obstacles = [];
+
+        let score1 = 0, score2 = 0;
+        let isGameOver = false;
+        let winner = '';
+        let isPaused = false;
+
+        let wallPass = false;
+        let obstacleMode = false;
+        let doubleMode = false;
+        let levelMode = false;
+
+        let baseSpeed = 120;
+        let currentSpeed = baseSpeed;
+        let gameTimer = null;
+
+        let currentLevel = 1;
+        let isLevelPassed = false;
+
+        let bosses = [];
+        let bossMoveCounter = 0;
+
+        let item = null;
+        let itemSpawnCounter = 0;
+        const ITEM_TYPES = ['invincible', 'slow', 'bomb', 'doubleScore'];
+
+        let buffs = {
+            invincible: 0,
+            slow: 0,
+            doubleScore: 0
+        };
+
+        let wiggleTime = 0;
+        const wiggleAmplitude = 10;   // 扭动幅度
+        const wiggleFrequency = 2.2; // 扭动频率
+        const wiggleSpeed = 0.45;     // 扭动速度，越大晃得越快
+
+        // ========== 网络请求 ==========
+        async function login(name, color) {
+            try {
+                const res = await fetch('/api/player', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, color })
+                });
+                return await res.json();
+            } catch (e) {
+                alert('连接服务器失败！请确认已启动后端服务，并通过 http://localhost:3000 访问');
+                return { success: false };
+            }
+        }
+
+        async function submitScore(name, score) {
+            try {
+                const res = await fetch('/api/score', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, score })
+                });
+                return await res.json();
+            } catch (e) {
+                return { success: false };
+            }
+        }
+
+        async function getRank() {
+            try {
+                const res = await fetch('/api/rank');
+                return await res.json();
+            } catch (e) {
+                alert('获取排行榜失败！请确认后端服务已启动');
+                return { success: false, list: [] };
+            }
+        }
+
+        async function loadRank() {
+            const data = await getRank();
+            if (data.success && data.list.length > 0) {
+                rankList.innerHTML = data.list.map(item => `
+                    <div class="rank-item">
+                        <div class="left">
+                            <span class="rank-no">${item.rank}</span>
+                            <span class="rank-dot" style="background:${item.color}"></span>
+                            <span>${item.name}</span>
+                        </div>
+                        <span>${item.score} 分</span>
+                    </div>
+                `).join('');
+            } else {
+                rankList.innerHTML = '<div style="text-align:center;color:#666;padding:20px 0;">暂无排行数据</div>';
+            }
+        }
+
+        function getLevelConfig(level) {
+            return {
+                target: 50 + (level - 1) * 60,
+                speed: Math.max(60, 150 - (level - 1) * 10),
+                obstacleCount: Math.min(30, 3 + (level - 1) * 3),
+                bossCount: Math.max(0, Math.min(5, Math.floor((level - 2) / 1) + 1)),
+                bossSpeed: Math.max(8, 22 - level)
+            };
+        }
+
+        function spawnFood() {
+            while (true) {
+                food.x = Math.floor(Math.random() * tileCount);
+                food.y = Math.floor(Math.random() * tileCount);
+                food.type = Math.random() < 0.3 ? 'gold' : 'normal';
+
+                const onSnake1 = snake1.some(s => s.x === food.x && s.y === food.y);
+                const onSnake2 = doubleMode && snake2.some(s => s.x === food.x && s.y === food.y);
+                const onObstacle = obstacles.some(o => o.x === food.x && o.y === food.y);
+                const onBoss = bosses.some(b => b.x === food.x && b.y === food.y);
+                const onItem = item && item.x === food.x && item.y === food.y;
+
+                if (!onSnake1 && !onSnake2 && !onObstacle && !onBoss && !onItem) break;
+            }
+        }
+
+        function spawnObstacles() {
+            obstacles = [];
+            let count = 15;
+
+            if (levelMode) {
+                count = getLevelConfig(currentLevel).obstacleCount;
+            } else if (!obstacleMode) {
+                return;
+            }
+
+            while (obstacles.length < count) {
+                const ox = Math.floor(Math.random() * tileCount);
+                const oy = Math.floor(Math.random() * tileCount);
+
+                const nearSpawn1 = Math.abs(ox - 15) < 4 && Math.abs(oy - 15) < 2;
+                const nearSpawn2 = doubleMode && Math.abs(ox - 15) < 4 && Math.abs(oy - 15) < 2;
+                const onSnake1 = snake1.some(s => s.x === ox && s.y === oy);
+                const onSnake2 = doubleMode && snake2.some(s => s.x === ox && s.y === oy);
+                const exists = obstacles.some(o => o.x === ox && o.y === oy);
+
+                if (!nearSpawn1 && !nearSpawn2 && !onSnake1 && !onSnake2 && !exists) {
+                    obstacles.push({ x: ox, y: oy });
+                }
+            }
+        }
+
+        function spawnBosses() {
+            bosses = [];
+            if (!levelMode) return;
+
+            const config = getLevelConfig(currentLevel);
+            if (config.bossCount <= 0) return;
+
+            while (bosses.length < config.bossCount) {
+                const bx = Math.floor(Math.random() * tileCount);
+                const by = Math.floor(Math.random() * tileCount);
+
+                const nearSpawn = Math.abs(bx - 15) < 5 && Math.abs(by - 15) < 3;
+                const onSnake = snake1.some(s => s.x === bx && s.y === by);
+                const onObstacle = obstacles.some(o => o.x === bx && o.y === by);
+                const onFood = food.x === bx && food.y === by;
+                const onBoss = bosses.some(b => b.x === bx && b.y === by);
+
+                if (!nearSpawn && !onSnake && !onObstacle && !onFood && !onBoss) {
+                    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+                    const dir = dirs[Math.floor(Math.random() * dirs.length)];
+                    bosses.push({ x: bx, y: by, dx: dir[0], dy: dir[1] });
+                }
+            }
+        }
+
+        function moveBosses() {
+            if (!levelMode || isPaused || isLevelPassed) return;
+
+            const config = getLevelConfig(currentLevel);
+            bossMoveCounter++;
+
+            if (bossMoveCounter < config.bossSpeed) return;
+            bossMoveCounter = 0;
+
+            bosses.forEach(boss => {
+                let newX = boss.x + boss.dx;
+                let newY = boss.y + boss.dy;
+
+                if (newX < 0 || newX >= tileCount) {
+                    boss.dx *= -1;
+                    newX = boss.x + boss.dx;
+                }
+                if (newY < 0 || newY >= tileCount) {
+                    boss.dy *= -1;
+                    newY = boss.y + boss.dy;
+                }
+
+                if (obstacles.some(o => o.x === newX && o.y === newY)) {
+                    boss.dx *= -1;
+                    boss.dy *= -1;
+                    newX = boss.x + boss.dx;
+                    newY = boss.y + boss.dy;
+                }
+
+                boss.x = newX;
+                boss.y = newY;
+            });
+        }
+
+        function spawnItem() {
+            if (item || doubleMode) return;
+
+            while (true) {
+                const ix = Math.floor(Math.random() * tileCount);
+                const iy = Math.floor(Math.random() * tileCount);
+
+                const onSnake = snake1.some(s => s.x === ix && s.y === iy);
+                const onObstacle = obstacles.some(o => o.x === ix && o.y === iy);
+                const onFood = food.x === ix && food.y === iy;
+                const onBoss = bosses.some(b => b.x === ix && b.y === iy);
+
+                if (!onSnake && !onObstacle && !onFood && !onBoss) {
+                    const type = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
+                    item = { x: ix, y: iy, type: type };
+                    break;
+                }
+            }
+        }
+
+        function applyItemEffect(type) {
+            switch (type) {
+                case 'invincible':
+                    buffs.invincible = 50;
+                    break;
+                case 'slow':
+                    buffs.slow = 50;
+                    resetTimer();
+                    break;
+                case 'bomb':
+                    obstacles = [];
+                    break;
+                case 'doubleScore':
+                    buffs.doubleScore = 100;
+                    break;
+            }
+        }
+
+        function giveLevelReward() {
+            const rewards = ['invincible', 'doubleScore', 'slow'];
+            const reward = rewards[Math.floor(Math.random() * rewards.length)];
+            applyItemEffect(reward);
+            score1 += 20;
+            score1El.textContent = score1;
+        }
+
+        function hitObstacle(x, y) {
+            return obstacles.some(o => o.x === x && o.y === y);
+        }
+
+        function hitBoss(x, y) {
+            return bosses.some(b => b.x === x && b.y === y);
+        }
+
+        function getSnakePoint(seg) {
+            return {
+                x: seg.x * gridSize + gridSize / 2,
+                y: seg.y * gridSize + gridSize / 2
+            };
+        }
+
+        // 穿墙坐标连续化
+        function getContinuousPoints(points) {
+            if (points.length < 2) return points;
+            const result = [{ ...points[0] }];
+            
+            for (let i = 1; i < points.length; i++) {
+                const prev = result[i - 1];
+                let curr = { ...points[i] };
+
+                const dx = curr.x - prev.x;
+                if (dx > canvasW / 2) {
+                    curr.x -= canvasW;
+                } else if (dx < -canvasW / 2) {
+                    curr.x += canvasW;
+                }
+
+                const dy = curr.y - prev.y;
+                if (dy > canvasH / 2) {
+                    curr.y -= canvasH;
+                } else if (dy < -canvasH / 2) {
+                    curr.y += canvasH;
+                }
+
+                result.push(curr);
+            }
+            return result;
+        }
+
+        // ========== 优化版：自然S型扭动绘制 ==========
+// ========== 自然蛇形扭动版 ==========
+// ========== 直行明显S形扭动优化版 ==========
+function drawCurvedSnake(snake, dx, dy, bodyColor, isInvincible) {
+    if (snake.length < 2) return;
+
+    // 1. 获取原始坐标并处理穿墙
+    let rawPoints = snake.map(seg => getSnakePoint(seg));
+    if (wallPass) {
+        rawPoints = getContinuousPoints(rawPoints);
+    }
+
+    const headPoint = { ...rawPoints[0] };
+    const bodyRadius = gridSize / 2 - 2;
+    const headRadius = bodyRadius + 2;
+
+    // 2. 路径平滑插值
+    const smoothPoints = [];
+    const subdivide = 3;
+    for (let i = 0; i < rawPoints.length - 1; i++) {
+        const p0 = rawPoints[Math.max(0, i - 1)];
+        const p1 = rawPoints[i];
+        const p2 = rawPoints[i + 1];
+        const p3 = rawPoints[Math.min(rawPoints.length - 1, i + 2)];
+
+        for (let t = 0; t < subdivide; t++) {
+            const s = t / subdivide;
+            const x = 0.5 * (
+                (2 * p1.x) +
+                (-p0.x + p2.x) * s +
+                (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * s * s +
+                (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * s * s * s
+            );
+            const y = 0.5 * (
+                (2 * p1.y) +
+                (-p0.y + p2.y) * s +
+                (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * s * s +
+                (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * s * s * s
+            );
+            smoothPoints.push({ x, y });
+        }
+    }
+    smoothPoints.push(rawPoints[rawPoints.length - 1]);
+
+    // 3. 沿路径均匀S形波动
+    const wobblePoints = [];
+    let totalLength = 0;
+    const segLengths = [];
+
+    for (let i = 0; i < smoothPoints.length; i++) {
+        if (i === 0) {
+            segLengths.push(0);
+        } else {
+            const dxSeg = smoothPoints[i].x - smoothPoints[i-1].x;
+            const dySeg = smoothPoints[i].y - smoothPoints[i-1].y;
+            const len = Math.sqrt(dxSeg*dxSeg + dySeg*dySeg);
+            totalLength += len;
+            segLengths.push(totalLength);
+        }
+    }
+
+    // 关键参数：直行也能看出明显S形
+    const waveLength = 38;    // 波长：越小S形越密，建议30-50
+    const waveAmplitude = 6;  // 幅度：越大扭得越明显，建议4-8
+    const waveSpeed = 1.6;    // 传播速度：越大游动越快，建议1.0-2.0
+
+    for (let i = 0; i < smoothPoints.length; i++) {
+        const p = smoothPoints[i];
+        
+        // 仅蛇头中心点不动，从颈部开始就参与摆动
+        if (i === 0) {
+            wobblePoints.push({ ...p });
+            continue;
+        }
+
+        // 计算法线方向（垂直于前进方向）
+        const prev = smoothPoints[Math.max(0, i - 1)];
+        let nx = -(p.y - prev.y);
+        let ny = p.x - prev.x;
+        const nLen = Math.sqrt(nx*nx + ny*ny);
+        if (nLen > 0) {
+            nx /= nLen;
+            ny /= nLen;
+        }
+
+        // 沿身体长度计算相位，波从头向尾传递
+        const dist = segLengths[i];
+        const phase = (dist / waveLength) * Math.PI * 2 - wiggleTime * waveSpeed;
+        
+        // 尾部轻微收窄，更自然（衰减很小，不影响整体扭动）
+        const fade = 1 - (i / smoothPoints.length) * 0.15;
+        const offset = Math.sin(phase) * waveAmplitude * fade;
+
+        wobblePoints.push({
+            x: p.x + nx * offset,
+            y: p.y + ny * offset
+        });
+    }
+
+    // 4. 绘制蛇身
+    ctx.save();
+
+    if (isInvincible) {
+        ctx.shadowColor = '#2196f3';
+        ctx.shadowBlur = 12;
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(wobblePoints[0].x, wobblePoints[0].y);
+    for (let i = 1; i < wobblePoints.length; i++) {
+        ctx.lineTo(wobblePoints[i].x, wobblePoints[i].y);
+    }
+
+    ctx.strokeStyle = bodyColor;
+    ctx.lineWidth = bodyRadius * 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+
+    // 5. 绘制蛇头
+    const headGradient = ctx.createRadialGradient(
+        headPoint.x - 3, headPoint.y - 3, 1,
+        headPoint.x, headPoint.y, headRadius
+    );
+
+    if (isInvincible) {
+        headGradient.addColorStop(0, '#90caf9');
+        headGradient.addColorStop(1, '#1976d2');
+    } else {
+        headGradient.addColorStop(0, lightenColor(bodyColor, 30));
+        headGradient.addColorStop(1, darkenColor(bodyColor, 20));
+    }
+
+    ctx.beginPath();
+    ctx.arc(headPoint.x, headPoint.y, headRadius, 0, Math.PI * 2);
+    ctx.fillStyle = headGradient;
+    ctx.fill();
+
+    drawSnakeEyes(headPoint.x, headPoint.y, headRadius, dx, dy);
+    drawSnakeTongue(headPoint.x, headPoint.y, headRadius, dx, dy);
+
+    ctx.restore();
+}
+
+        function lightenColor(hex, percent) {
+            const num = parseInt(hex.replace('#', ''), 16);
+            const amt = Math.round(2.55 * percent);
+            const R = Math.min(255, (num >> 16) + amt);
+            const G = Math.min(255, ((num >> 8) & 0x00FF) + amt);
+            const B = Math.min(255, (num & 0x0000FF) + amt);
+            return `rgb(${R},${G},${B})`;
+        }
+
+        function darkenColor(hex, percent) {
+            const num = parseInt(hex.replace('#', ''), 16);
+            const amt = Math.round(2.55 * percent);
+            const R = Math.max(0, (num >> 16) - amt);
+            const G = Math.max(0, ((num >> 8) & 0x00FF) - amt);
+            const B = Math.max(0, (num & 0x0000FF) - amt);
+            return `rgb(${R},${G},${B})`;
+        }
+
+        function drawSnakeEyes(cx, cy, r, dx, dy) {
+            const eyeOffset = r * 0.4;
+            const eyeR = r * 0.22;
+            const pupilR = eyeR * 0.5;
+
+            let eye1x, eye1y, eye2x, eye2y;
+
+            if (dx === 1) {
+                eye1x = cx + eyeOffset; eye1y = cy - eyeOffset * 0.6;
+                eye2x = cx + eyeOffset; eye2y = cy + eyeOffset * 0.6;
+            } else if (dx === -1) {
+                eye1x = cx - eyeOffset; eye1y = cy - eyeOffset * 0.6;
+                eye2x = cx - eyeOffset; eye2y = cy + eyeOffset * 0.6;
+            } else if (dy === -1) {
+                eye1x = cx - eyeOffset * 0.6; eye1y = cy - eyeOffset;
+                eye2x = cx + eyeOffset * 0.6; eye2y = cy - eyeOffset;
+            } else {
+                eye1x = cx - eyeOffset * 0.6; eye1y = cy + eyeOffset;
+                eye2x = cx + eyeOffset * 0.6; eye2y = cy + eyeOffset;
+            }
+
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(eye1x, eye1y, eyeR, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(eye2x, eye2y, eyeR, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#000';
+            const pupilOffset = pupilR * 0.4;
+            ctx.beginPath();
+            ctx.arc(eye1x + dx * pupilOffset, eye1y + dy * pupilOffset, pupilR, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(eye2x + dx * pupilOffset, eye2y + dy * pupilOffset, pupilR, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawSnakeTongue(cx, cy, r, dx, dy) {
+            const tongueLen = r * 0.8;
+            const forkLen = tongueLen * 0.4;
+
+            ctx.strokeStyle = '#e91e63';
+            ctx.lineWidth = 1.5;
+            ctx.lineCap = 'round';
+
+            let endX = cx + dx * (r + tongueLen);
+            let endY = cy + dy * (r + tongueLen);
+
+            ctx.beginPath();
+            ctx.moveTo(cx + dx * r, cy + dy * r);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+
+            if (dx !== 0) {
+                ctx.beginPath();
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(endX + forkLen * 0.5, endY - forkLen * 0.5);
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(endX + forkLen * 0.5, endY + forkLen * 0.5);
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(endX - forkLen * 0.5, endY + forkLen * 0.5);
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(endX + forkLen * 0.5, endY + forkLen * 0.5);
+                ctx.stroke();
+            }
+        }
+
+        function render() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#555';
+            obstacles.forEach(o => {
+                const ox = o.x * gridSize + gridSize / 2;
+                const oy = o.y * gridSize + gridSize / 2;
+                ctx.beginPath();
+                ctx.arc(ox, oy, gridSize / 2 - 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            bosses.forEach(b => {
+                const bx = b.x * gridSize + gridSize / 2;
+                const by = b.y * gridSize + gridSize / 2;
+                const gradient = ctx.createRadialGradient(bx - 2, by - 2, 1, bx, by, gridSize / 2);
+                gradient.addColorStop(0, '#ce93d8');
+                gradient.addColorStop(1, '#7b1fa2');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(bx, by, gridSize / 2 - 1, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(bx - 3, by - 2, 3, 0, Math.PI * 2);
+                ctx.arc(bx + 3, by - 2, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(bx - 3, by - 2, 1.5, 0, Math.PI * 2);
+                ctx.arc(bx + 3, by - 2, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            if (item) {
+                const colors = {
+                    invincible: '#2196f3',
+                    slow: '#00bcd4',
+                    bomb: '#ff5722',
+                    doubleScore: '#ffeb3b'
+                };
+                const ix = item.x * gridSize + gridSize / 2;
+                const iy = item.y * gridSize + gridSize / 2;
+                const pulse = Math.sin(Date.now() / 200) * 1.5;
+                ctx.fillStyle = colors[item.type];
+                ctx.beginPath();
+                ctx.arc(ix, iy, gridSize / 2 - 2 + pulse, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.beginPath();
+                ctx.arc(ix - 2, iy - 2, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            const playerColor = currentPlayer ? currentPlayer.color : '#4caf50';
+            drawCurvedSnake(snake1, dx1, dy1, playerColor, buffs.invincible > 0);
+
+            if (doubleMode) {
+                drawCurvedSnake(snake2, dx2, dy2, '#42a5f5', false);
+            }
+
+            const fx = food.x * gridSize + gridSize / 2;
+            const fy = food.y * gridSize + gridSize / 2;
+            const foodPulse = Math.sin(Date.now() / 300) * 1;
+            const foodGradient = ctx.createRadialGradient(fx - 2, fy - 2, 1, fx, fy, gridSize / 2 - 2);
+
+            if (food.type === 'gold') {
+                foodGradient.addColorStop(0, '#fff59d');
+                foodGradient.addColorStop(1, '#fbc02d');
+            } else {
+                foodGradient.addColorStop(0, '#ef9a9a');
+                foodGradient.addColorStop(1, '#c62828');
+            }
+
+            ctx.fillStyle = foodGradient;
+            ctx.beginPath();
+            ctx.arc(fx, fy, gridSize / 2 - 2 + foodPulse, 0, Math.PI * 2);
+            ctx.fill();
+
+            let buffY = 40;
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'left';
+
+            if (buffs.invincible > 0) {
+                ctx.fillStyle = '#2196f3';
+                ctx.fillText(`无敌: ${Math.ceil(buffs.invincible / 10)}s`, 10, buffY);
+                buffY += 20;
+            }
+            if (buffs.slow > 0) {
+                ctx.fillStyle = '#00bcd4';
+                ctx.fillText(`减速: ${Math.ceil(buffs.slow / 10)}s`, 10, buffY);
+                buffY += 20;
+            }
+            if (buffs.doubleScore > 0) {
+                ctx.fillStyle = '#ffeb3b';
+                ctx.fillText(`双倍: ${Math.ceil(buffs.doubleScore / 10)}s`, 10, buffY);
+                buffY += 20;
+            }
+
+            if (isPaused && !isGameOver && !isLevelPassed) {
+                ctx.fillStyle = '#fff';
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('游戏暂停，按空格继续', canvas.width / 2, canvas.height / 2);
+            }
+
+            if (isLevelPassed) {
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#ffd700';
+                ctx.font = '36px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`恭喜通过第 ${currentLevel} 关！`, canvas.width / 2, canvas.height / 2 - 40);
+                ctx.fillStyle = '#fff';
+                ctx.font = '20px Arial';
+                ctx.fillText(`当前得分: ${score1}`, canvas.width / 2, canvas.height / 2);
+                ctx.fillText('按空格进入下一关', canvas.width / 2, canvas.height / 2 + 40);
+            }
+
+            if (isGameOver) {
+                ctx.fillStyle = '#fff';
+                ctx.font = '32px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('游戏结束!', canvas.width / 2, canvas.height / 2 - 50);
+                ctx.font = '22px Arial';
+
+                if (doubleMode) {
+                    ctx.fillText(winner, canvas.width / 2, canvas.height / 2 - 10);
+                    ctx.fillText(`玩家1: ${score1} 分 | 玩家2: ${score2} 分`, canvas.width / 2, canvas.height / 2 + 25);
+                } else {
+                    ctx.fillText(`本局得分: ${score1}`, canvas.width / 2, canvas.height / 2 - 10);
+                    if (levelMode) {
+                        ctx.fillText(`到达关卡: 第 ${currentLevel} 关`, canvas.width / 2, canvas.height / 2 + 25);
+                    }
+                }
+
+                ctx.font = '18px Arial';
+                ctx.fillText('按 R 键重新开始', canvas.width / 2, canvas.height / 2 + 60);
+            }
+        }
+
+        function moveSnake(snake, dx, dy, isPlayer1) {
+            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+            if (wallPass) {
+                if (head.x < 0) head.x = tileCount - 1;
+                if (head.x >= tileCount) head.x = 0;
+                if (head.y < 0) head.y = tileCount - 1;
+                if (head.y >= tileCount) head.y = 0;
+            } else {
+                if ((head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) && buffs.invincible <= 0) {
+                    return { dead: true, head: head };
+                }
+            }
+
+            if (snake.some(s => s.x === head.x && s.y === head.y) && buffs.invincible <= 0) {
+                return { dead: true, head: head };
+            }
+
+            if (hitObstacle(head.x, head.y) && buffs.invincible <= 0) {
+                return { dead: true, head: head };
+            }
+
+            if (hitBoss(head.x, head.y) && buffs.invincible <= 0) {
+                return { dead: true, head: head };
+            }
+
+            if (doubleMode) {
+                const otherSnake = isPlayer1 ? snake2 : snake1;
+                if (otherSnake.some(s => s.x === head.x && s.y === head.y)) {
+                    return { dead: true, head: head };
+                }
+            }
+
+            snake.unshift(head);
+
+            if (!doubleMode && item && head.x === item.x && head.y === item.y) {
+                applyItemEffect(item.type);
+                item = null;
+            }
+
+            let ate = false;
+            if (head.x === food.x && head.y === food.y) {
+                ate = true;
+                let addScore = food.type === 'gold' ? 30 : 10;
+                if (buffs.doubleScore > 0) addScore *= 2;
+
+                if (isPlayer1) {
+                    score1 += addScore;
+                    score1El.textContent = score1;
+                } else {
+                    score2 += addScore;
+                    score2El.textContent = score2;
+                }
+
+                spawnFood();
+
+                if (!levelMode) {
+                    const totalScore = score1 + score2;
+                    if (totalScore % 50 === 0 && currentSpeed > 50) {
+                        currentSpeed -= 6;
+                        resetTimer();
+                    }
+                }
+            } else {
+                snake.pop();
+            }
+
+            return { dead: false, head: head, ate: ate };
+        }
+
+        function checkLevelPass() {
+            if (!levelMode || isLevelPassed) return;
+            const config = getLevelConfig(currentLevel);
+            if (score1 >= config.target) {
+                isLevelPassed = true;
+                isPaused = true;
+            }
+        }
+
+        function nextLevel() {
+            currentLevel++;
+            isLevelPassed = false;
+            isPaused = false;
+
+            const config = getLevelConfig(currentLevel);
+            currentSpeed = config.speed;
+
+            levelTextEl.textContent = currentLevel;
+            targetTextEl.textContent = config.target;
+
+            snake1 = [
+                { x: 12, y: 15 },
+                { x: 11, y: 15 },
+                { x: 10, y: 15 }
+            ];
+            dx1 = 1; dy1 = 0;
+            nextDx1 = 1; nextDy1 = 0;
+
+            buffs = { invincible: 0, slow: 0, doubleScore: 0 };
+            item = null;
+            itemSpawnCounter = 0;
+            bossMoveCounter = 0;
+
+            spawnObstacles();
+            spawnBosses();
+            spawnFood();
+            giveLevelReward();
+            resetTimer();
+        }
+
+        function update() {
+            if (isGameOver || isPaused || isLevelPassed) return;
+
+            // 只有游戏正常运行时，才推进扭动时间
+            wiggleTime += 10;
+
+            dx1 = nextDx1;
+            dy1 = nextDy1;
+
+            if (doubleMode) {
+                dx2 = nextDx2;
+                dy2 = nextDy2;
+            }
+
+            moveBosses();
+
+            if (buffs.invincible > 0) buffs.invincible--;
+            if (buffs.slow > 0) {
+                buffs.slow--;
+                if (buffs.slow === 0) resetTimer();
+            }
+            if (buffs.doubleScore > 0) buffs.doubleScore--;
+
+            if (!doubleMode) {
+                itemSpawnCounter++;
+                if (itemSpawnCounter >= 120 && !item && Math.random() < 0.25) {
+                    spawnItem();
+                    itemSpawnCounter = 0;
+                }
+            }
+
+            const result1 = moveSnake(snake1, dx1, dy1, true);
+
+            if (doubleMode) {
+                const result2 = moveSnake(snake2, dx2, dy2, false);
+                if (result1.dead && result2.dead) {
+                    isGameOver = true;
+                    winner = '平局！';
+                } else if (result1.dead) {
+                    isGameOver = true;
+                    winner = '玩家2 获胜！';
+                } else if (result2.dead) {
+                    isGameOver = true;
+                    winner = '玩家1 获胜！';
+                }
+            } else {
+                if (result1.dead) {
+                    isGameOver = true;
+                    if (currentPlayer) {
+                        submitScore(currentPlayer.name, score1).then(data => {
+                            if (data.newRecord) {
+                                highScoreEl.textContent = data.highScore;
+                            }
+                        });
+                    }
+                } else {
+                    checkLevelPass();
+                }
+            }
+        }
+
+        function gameLoop() {
+            update();
+            render();
+        }
+
+        function resetTimer() {
+            clearInterval(gameTimer);
+            const speed = buffs.slow > 0 ? currentSpeed * 1.8 : currentSpeed;
+            gameTimer = setInterval(gameLoop, speed);
+        }
+
+        function restart() {
+            clearInterval(gameTimer);
+
+            snake1 = [
+                { x: 12, y: 15 },
+                { x: 11, y: 15 },
+                { x: 10, y: 15 }
+            ];
+            dx1 = 1; dy1 = 0;
+            nextDx1 = 1; nextDy1 = 0;
+
+            if (doubleMode) {
+                snake2 = [
+                    { x: 18, y: 15 },
+                    { x: 19, y: 15 },
+                    { x: 20, y: 15 }
+                ];
+                dx2 = -1; dy2 = 0;
+                nextDx2 = -1; nextDy2 = 0;
+                score2 = 0;
+                score2El.textContent = score2;
+            }
+
+            score1 = 0;
+            score1El.textContent = score1;
+            isGameOver = false;
+            winner = '';
+            isPaused = false;
+            isLevelPassed = false;
+
+            bosses = [];
+            item = null;
+            itemSpawnCounter = 0;
+            bossMoveCounter = 0;
+            buffs = { invincible: 0, slow: 0, doubleScore: 0 };
+            wiggleTime = 0;
+
+            if (levelMode) {
+                currentLevel = 1;
+                const config = getLevelConfig(currentLevel);
+                currentSpeed = config.speed;
+                levelTextEl.textContent = currentLevel;
+                targetTextEl.textContent = config.target;
+            } else {
+                currentSpeed = baseSpeed;
+            }
+
+            spawnObstacles();
+            spawnBosses();
+            spawnFood();
+            resetTimer();
+        }
+
+        // 键盘事件
+        document.addEventListener('keydown', e => {
+            if (isLevelPassed && e.key === ' ') {
+                e.preventDefault();
+                nextLevel();
+                return;
+            }
+
+            if (doubleMode) {
+                if ((e.key === 'w' || e.key === 'W') && dy1 !== 1) { nextDx1 = 0; nextDy1 = -1; }
+                else if ((e.key === 's' || e.key === 'S') && dy1 !== -1) { nextDx1 = 0; nextDy1 = 1; }
+                else if ((e.key === 'a' || e.key === 'A') && dx1 !== 1) { nextDx1 = -1; nextDy1 = 0; }
+                else if ((e.key === 'd' || e.key === 'D') && dx1 !== -1) { nextDx1 = 1; nextDy1 = 0; }
+
+                if (e.key === 'ArrowUp' && dy2 !== 1) { nextDx2 = 0; nextDy2 = -1; }
+                else if (e.key === 'ArrowDown' && dy2 !== -1) { nextDx2 = 0; nextDy2 = 1; }
+                else if (e.key === 'ArrowLeft' && dx2 !== 1) { nextDx2 = -1; nextDy2 = 0; }
+                else if (e.key === 'ArrowRight' && dx2 !== -1) { nextDx2 = 1; nextDy2 = 0; }
+            } else {
+                if (e.key === 'ArrowUp' && dy1 !== 1) { nextDx1 = 0; nextDy1 = -1; }
+                else if (e.key === 'ArrowDown' && dy1 !== -1) { nextDx1 = 0; nextDy1 = 1; }
+                else if (e.key === 'ArrowLeft' && dx1 !== 1) { nextDx1 = -1; nextDy1 = 0; }
+                else if (e.key === 'ArrowRight' && dx1 !== -1) { nextDx1 = 1; nextDy1 = 0; }
+            }
+
+            if (e.key === ' ' && !isGameOver && !isLevelPassed) {
+                e.preventDefault();
+                isPaused = !isPaused;
+            }
+
+            if (e.key.toLowerCase() === 'r') {
+                restart();
+            }
+        });
+
+        // 按钮事件
+        diffBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (levelMode) return;
+                diffBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                baseSpeed = parseInt(btn.dataset.speed);
+                currentSpeed = baseSpeed;
+                restart();
+            });
+        });
+
+        wallModeBtn.addEventListener('click', () => {
+            wallPass = !wallPass;
+            wallModeBtn.textContent = `穿墙模式：${wallPass ? '开' : '关'}`;
+            wallModeBtn.classList.toggle('active', wallPass);
+        });
+
+        obstacleBtn.addEventListener('click', () => {
+            if (levelMode) return;
+            obstacleMode = !obstacleMode;
+            obstacleBtn.textContent = `障碍物：${obstacleMode ? '开' : '关'}`;
+            obstacleBtn.classList.toggle('active', obstacleMode);
+            restart();
+        });
+
+        levelModeBtn.addEventListener('click', () => {
+            levelMode = !levelMode;
+            levelModeBtn.textContent = `闯关模式：${levelMode ? '开' : '关'}`;
+            levelModeBtn.classList.toggle('active', levelMode);
+
+            if (levelMode && doubleMode) {
+                doubleMode = false;
+                modeBtn.textContent = '双人模式：关';
+                modeBtn.classList.remove('active');
+                score2El.parentElement.style.visibility = 'hidden';
+            }
+
+            diffBtns.forEach(b => b.disabled = levelMode);
+            obstacleBtn.disabled = levelMode;
+            document.querySelector('.level-info').style.visibility = levelMode ? 'visible' : 'hidden';
+
+            restart();
+        });
+
+        modeBtn.addEventListener('click', () => {
+            doubleMode = !doubleMode;
+            modeBtn.textContent = `双人模式：${doubleMode ? '开' : '关'}`;
+            modeBtn.classList.toggle('active', doubleMode);
+
+            if (doubleMode && levelMode) {
+                levelMode = false;
+                levelModeBtn.textContent = '闯关模式：关';
+                levelModeBtn.classList.remove('active');
+                diffBtns.forEach(b => b.disabled = false);
+                obstacleBtn.disabled = false;
+                document.querySelector('.level-info').style.visibility = 'hidden';
+            }
+
+            score2El.parentElement.style.visibility = doubleMode ? 'visible' : 'hidden';
+            restart();
+        });
+
+        rankBtn.addEventListener('click', async () => {
+            await loadRank();
+            rankModal.classList.remove('hidden');
+        });
+
+        restartBtn.addEventListener('click', restart);
+
+        // ========== 随时更换颜色 ==========
+        gameColorPicker.addEventListener('change', async () => {
+            if (!currentPlayer) return;
+            const newColor = gameColorPicker.value;
+            currentPlayer.color = newColor;
+            // 同步更新到服务端
+            await login(currentPlayer.name, newColor);
+        });
+
+        // 登录相关
+        startBtn.addEventListener('click', async () => {
+            const name = nameInput.value.trim();
+            const color = colorInput.value;
+
+            if (!name) {
+                alert('请输入昵称');
+                return;
+            }
+
+            const data = await login(name, color);
+            if (data.success) {
+                currentPlayer = data.player;
+                userNameEl.textContent = currentPlayer.name;
+                highScoreEl.textContent = currentPlayer.highScore;
+                gameColorPicker.value = currentPlayer.color;
+                loginModal.classList.add('hidden');
+                restart();
+            }
+        });
+
+        showRankBtn.addEventListener('click', async () => {
+            await loadRank();
+            rankModal.classList.remove('hidden');
+        });
+
+        closeRankBtn.addEventListener('click', () => {
+            rankModal.classList.add('hidden');
+        });
+
+        // 初始化
+        score2El.parentElement.style.visibility = 'hidden';
+        document.querySelector('.level-info').style.visibility = 'hidden';
+    </script>
+</body>
+</html>
